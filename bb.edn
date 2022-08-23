@@ -3,6 +3,12 @@
   {:doc "Cleans up any build artifacts"
    :task (shell "clojure -T:build clean")}
 
+
+  compile:java
+  {:doc "Compiles the java files"
+   :task (shell "clojure -T:build compile-java")}
+
+
   compile:clj
   {:doc "Compiles the Clojure files"
    :task (shell "clojure -T:build compile-clj")}

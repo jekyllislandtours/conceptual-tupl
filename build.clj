@@ -17,6 +17,14 @@
   (bb/clean {}))
 
 
+(defn compile-java [_]
+  (println "Compiling java...")
+  (b/javac {:src-dirs ["src/java"]
+            :class-dir (bb/default-class-dir)
+            :basis (bb/default-basis)
+            :javac-opts [;;"-source" "8" "-target" "8"
+                         "-Xlint:deprecation" "-Xlint:unchecked"]}))
+
 (defn compile-clj [_]
   (println "Compiling clj...")
   (b/compile-clj {:src-dirs ["src/clj"]
