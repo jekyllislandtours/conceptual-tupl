@@ -3,11 +3,9 @@
   {:doc "Cleans up any build artifacts"
    :task (shell "clojure -T:build clean")}
 
-
   compile:java
   {:doc "Compiles the java files"
    :task (shell "clojure -T:build compile-java")}
-
 
   compile:clj
   {:doc "Compiles the Clojure files"
@@ -15,17 +13,15 @@
 
   build:check
   {:doc "Ensures the code compiles"
-   :depends [clean compile:clj]}
+   :depends [clean compile:java compile:clj]}
 
   build:jar
   {:doc "Builds a jar file"
    :task (shell "clojure -T:build jar")}
 
-
   install
   {:doc "Install into local Maven repo cache"
    :task (shell "clojure -T:build install")}
-
 
   deploy
   {:doc "Deploy to clojars."

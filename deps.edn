@@ -1,13 +1,12 @@
 {:deps {org.clojure/clojure                      {:mvn/version "1.11.1"}
-        org.clojars.jekyllislandtours/conceptual {:mvn/version "0.1.40"}
+        org.clojars.jekyllislandtours/conceptual {:mvn/version "0.1.42"}
         org.cojen/tupl                           {:mvn/version "1.6.0"}}
 
  :paths ["src/clj" "target/classes"]
 
- :aliases {:build       {:deps       {io.github.seancorfield/build-clj {:git/tag "v0.8.2" :git/sha "0ffdb4c"}}
-                         :ns-default build}}
+ :aliases {:build {:deps       {io.github.seancorfield/build-clj {:git/tag "v0.8.2" :git/sha "0ffdb4c"}}
+                   :ns-default build}}
 
- ;; :deps/prep-lib {:ensure "target/classes"
- ;;                 :alias  :build
- ;;                 :fn     compile-java}
- }
+ :deps/prep-lib {:ensure "target/classes"
+                 :alias  :build
+                 :fn     compile-java}}

@@ -5,6 +5,7 @@ import clojure.java.api.Clojure;
 import clojure.lang.IFn;
 import clojure.lang.Keyword;
 
+import conceptual.core.PersistentDB;
 import conceptual.core.RDB;
 
 import org.cojen.tupl.Database;

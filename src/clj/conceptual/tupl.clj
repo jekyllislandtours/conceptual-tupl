@@ -44,6 +44,10 @@
 (defonce ^{:dynamic true :tag Database} *db* nil)
 
 (defonce ^:dynamic *initialized?* (atom false))
+(def ^:dynamic *key-deserializer* identity)
+(def ^:dynamic *value-deserializer* identity)
+(def ^:dynamic *key-serializer* arrays/ensure-bytes)
+(def ^:dynamic *value-serializer* arrays/ensure-bytes)
 
 
 (defn ^Crypto crypto
@@ -245,7 +249,8 @@
 
 (defn with-db* [^Keyword db-key f]
   (let [^Database d (db db-key)]
-    (binding [*db* d] (f))))
+    (binding [*db* d]
+      (f))))
 
 (defmacro with-db
   "Evaluates body in the context of a specified database. The binding
@@ -270,7 +275,8 @@
      (try
        (binding [*cursor* c]
          (f))
-       (finally (.reset c))))))
+       (finally
+         (.reset c))))))
 
 (defmacro with-cursor
   "Evaluates body in the context of a specified cursor. The binding
@@ -284,7 +290,8 @@
    (let [^Transaction t (transaction db)]
      (try
        (with-bindings* {#'*transaction* t} f) ;; prefer using binding here
-       (finally (.commit t))))))
+       (finally
+         (.commit t))))))
 
 (defmacro with-transaction
   ([idx & forms]
@@ -336,17 +343,41 @@
    (with-db db
      (load idx k))))
 
+
+(defn index-first
+  "Grabs the first entry for a given index."
+  ([] (index-first *cursor*))
+  ([^Cursor cursor & {:keys [key-deserializer value-deserializer]
+                      :or {key-deserializer *key-deserializer*
+                           value-deserializer *value-deserializer*}}]
+   (.first cursor)
+   (vector (key-deserializer (.key cursor))
+           (value-deserializer (.value cursor)))))
+
+(defn index-last
+  "Grabs the last entry for a given index."
+  ([] (index-last *cursor*))
+  ([^Cursor cursor & {:keys [key-deserializer value-deserializer]
+                      :or {key-deserializer *key-deserializer*
+                           value-deserializer *value-deserializer*}}]
+   (.last cursor)
+   (vector (key-deserializer (.key cursor))
+           (value-deserializer (.value cursor)))))
+
 (defn index-range-keys*
   "Eager seq over range of entries for a given index starting at start,
   or from beginning if start is nil, and ending before end,
   or through the end of the index if end is nil.
   Use inside with-cursor."
   ([idx start stop] (index-range-keys* *db* idx start stop))
-  ([db idx start stop]
+  ([db idx start stop & {:keys [key-deserializer
+                                key-serializer]
+                         :or {key-deserializer *key-deserializer*
+                              key-serializer *key-serializer*}}]
    (let [-idx (index db idx)
          ^Cursor cursor (cursor -idx)
-         -start (when start (arrays/ensure-bytes start))
-         -stop (when stop (arrays/ensure-bytes stop))]
+         -start (some-> start key-serializer)
+         -stop (some-> stop key-serializer)]
      (try
        (if -start
          (.findGe cursor -start)
@@ -361,26 +392,30 @@
                (.nextLt cursor -stop)
                (.next cursor))
              (recur (.key cursor)
-                    (conj result (arrays/bytes-> k))))
+                    (conj result (key-deserializer k))))
            result))
-       (finally (.reset cursor))))))
+       (finally
+         (.reset cursor))))))
 
 (defn index-range-keys
   "Lazy seq over range of keys for a given index starting at start,
   and ending before end. Use inside with-cursor."
   ([start stop] (index-range-keys *cursor* start stop))
-  ([^Cursor cursor start stop]
-   (let [-start (when start (arrays/ensure-bytes start))
-         -stop (when stop (arrays/ensure-bytes stop))]
+  ([^Cursor cursor start stop & {:keys [key-deserializer
+                                        key-serializer]
+                                 :or {key-deserializer *key-deserializer*
+                                      key-serializer *key-serializer*}}]
+   (let [-start (some-> start key-serializer)
+         -stop (some-> stop key-serializer)]
       (if -start
         (.findGe cursor -start)
         (.first cursor))
       (letfn [(results []
-                (when (nil? cursor)
+                (when-not cursor
                   (throw (IllegalStateException.
                           "you let the lazy-seq-out")))
                 (when-let [k (.key cursor)]
-                  (cons (arrays/bytes-> k)
+                  (cons (key-deserializer k)
                         (do (if -stop
                               (.nextLt cursor -stop)
                               (.next cursor))
@@ -393,11 +428,14 @@
   or through the end of the index if end is nil.
   Use inside with-cursor."
   ([idx start stop] (index-range* *db* idx start stop))
-  ([db idx start stop]
+  ([db idx start stop & {:keys [key-deserializer key-serializer value-deserializer]
+                         :or {key-deserializer *key-deserializer*
+                              key-serializer *key-serializer*
+                              value-deserializer *value-deserializer*}}]
    (let [-idx (index db idx)
          ^Cursor cursor (cursor -idx)
-         -start (when start (arrays/ensure-bytes start))
-         -stop (when stop (arrays/ensure-bytes stop))]
+         -start (some-> start key-serializer)
+         -stop (some-> stop key-serializer)]
      (try
        (if -start
          (.findGe cursor -start)
@@ -410,10 +448,11 @@
                (.nextLt cursor -stop)
                (.next cursor))
              (recur (.key cursor)
-                    (conj result [(arrays/bytes-> k)
-                                  (arrays/bytes-> v)])))
+                    (conj result [(key-deserializer k)
+                                  (value-deserializer v)])))
            result))
-       (finally (.reset cursor))))))
+       (finally
+         (.reset cursor))))))
 
 (defn index-range
   "Lazy seq over range of entries for a given index starting at start,
@@ -421,9 +460,12 @@
   or through the end of the index if end is nil.
   Use inside with-cursor."
   ([start stop] (index-range *cursor* start stop))
-  ([^Cursor cursor start stop]
-   (let [-start (when start (arrays/ensure-bytes start))
-         -stop (when stop (arrays/ensure-bytes stop))]
+  ([^Cursor cursor start stop & {:keys [key-deserializer key-serializer value-deserializer]
+                                 :or {key-deserializer *key-deserializer*
+                                      key-serializer *key-serializer*
+                                      value-deserializer *value-deserializer*}}]
+   (let [-start (some-> start key-serializer)
+         -stop (some-> stop key-serializer)]
       (if -start
         (.findGe cursor -start)
         (.first cursor))
@@ -432,33 +474,17 @@
                   (throw (IllegalStateException.
                           "you let the lazy-seq-out")))
                 (when-let [k (.key cursor)]
-                  (cons [(arrays/bytes-> k)
-                         (arrays/bytes-> (.value cursor))]
+                  (cons [(key-deserializer k)
+                         (value-deserializer (.value cursor))]
                         (do (if -stop
                               (.nextLt cursor -stop)
                               (.next cursor))
                             (lazy-seq (results))))))]
         (results)))))
 
-(defn index-first
-  "Grabs the first entry for a given index."
-  ([] (index-first *cursor*))
-  ([^Cursor cursor]
-    (.first cursor)
-    (vector (arrays/bytes-> (.key cursor))
-           (arrays/bytes-> (.value cursor)))))
-
-(defn index-last
-  "Grabs the last entry for a given index."
-  ([] (index-last *cursor*))
-  ([^Cursor cursor]
-    (.last cursor)
-    (vector (arrays/bytes-> (.key cursor))
-           (arrays/bytes-> (.value cursor)))))
-
-(defn clear!
+(defn clear-index!
   "Clears all entries for a given index."
-  ([idx] (clear! *db* idx))
+  ([idx] (clear-index! *db* idx))
   ([db idx]
    (let [^Index -idx (index db idx)
          keys-to-remove (with-db db
@@ -467,12 +493,12 @@
      (doseq [k keys-to-remove]
        (.delete -idx nil k)))))
 
-(defn drop!
+(defn drop-index!
   "Drops a given index. If the index is not empty, first clears it."
-  ([idx] (drop! *db* idx))
+  ([idx] (drop-index! *db* idx))
   ([db idx]
    (let [^Index -idx (index db idx)
-         cnt (clear! db idx)]
+         cnt (clear-index! db idx)]
      (.drop -idx)
      cnt)))
 
@@ -497,12 +523,6 @@
   (.sync db))
 
 
-(defn persist!
-  [^Database db]
-  (flush! db)
-  (sync! db))
-
-
 (defn ^Scanner scan
   ([^Index idx]
    (scan idx Transaction/BOGUS))
@@ -522,14 +542,15 @@
     @n))
 
 (defn index-keys
-  "Returns the number of entries in a given index."
-  [^Index idx]
+  "Returns all the keys from the index"
+  [^Index idx & {:keys [key-deserializer]
+                 :or {key-deserializer *key-deserializer*}} ]
   (let [ks (transient [])]
     (with-open [s (scan idx)]
       (.scanAll s
                 (reify EntryConsumer
                   (accept [this k _v]
-                    (conj! ks k)))))
+                    (conj! ks (key-deserializer k))))))
     (persistent! ks)))
 
 
