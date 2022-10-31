@@ -234,14 +234,12 @@ public class DBTuplMap extends DBMap implements ILookup, Map, Iterable, Associat
 
     @Override
     public IPersistentCollection cons(Object o) {
-        throw new UnsupportedOperationException();
-        //return asPersistentMap().cons(o);
+        return asPersistentMap().cons(o);
     }
 
     @Override
     public IPersistentCollection empty() {
-        throw new UnsupportedOperationException();
-        //return PersistentHashMap.create();
+        return PersistentHashMap.create();
     }
 
     @Override
@@ -265,12 +263,21 @@ public class DBTuplMap extends DBMap implements ILookup, Map, Iterable, Associat
     }
 
     @Override
-    public Associative assoc(Object key, Object val) {
-        throw new UnsupportedOperationException();
-        //return asPersistentMap().assoc(key, val);
+    public IPersistentMap assoc(Object key, Object val) {
+        return asPersistentMap().assoc(key, val);
     }
 
-    class DBMapEntry implements IMapEntry, Comparable {
+    @Override
+    public IPersistentMap assocEx(Object key, Object val) {
+        return assoc(key, val);
+    }
+
+    @Override
+    public IPersistentMap without(Object key) {
+        return asPersistentMap().without(key);
+    }
+
+    class DBMapEntry implements IMapEntry, Seqable, Sequential, Comparable {
         private int key;
 
         DBMapEntry(int key) {
@@ -312,6 +319,47 @@ public class DBTuplMap extends DBMap implements ILookup, Map, Iterable, Associat
 
         @Override
         public Object val() { return db.getValue(id, key); }
+
+        public Object nth(int i){
+            if (i == 0)
+                return key();
+            else if (i == 1)
+                return val();
+            else
+                throw new IndexOutOfBoundsException();
+        }
+
+        public PersistentVector asVector() {
+            return PersistentVector.create(key(), val());
+        }
+
+        public IPersistentVector assocN(int i, Object val) {
+            return asVector().assocN(i, val);
+        }
+
+        public int count() {
+            return 2;
+        }
+
+        public ISeq seq() {
+            return asVector().seq();
+        }
+
+        public ISeq cons(Object o) {
+            return (ISeq) asVector().cons(o);
+        }
+
+        public IPersistentCollection empty() {
+            return null;
+        }
+
+        public IPersistentStack pop() {
+            return LazilyPersistentVector.createOwning(key());
+        }
+
+        public boolean equiv(Object obj){
+            return asVector().equiv(obj);
+        }
 
         @Override
         public String toString() {

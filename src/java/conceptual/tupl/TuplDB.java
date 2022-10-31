@@ -100,6 +100,11 @@ public final class TuplDB implements WritableDB {
     }
 
     @Override
+    public Integer lookupId(int uniqueKey, Object key) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Integer keywordToId(final Keyword key) {
         if (key == null) {
             return null;
@@ -252,6 +257,11 @@ public final class TuplDB implements WritableDB {
         return new DBTuplMap(this, id);
     }
 
+    @Override
+    public DBMap lookup(int uniqueKey, Object key) {
+        throw new UnsupportedOperationException();
+    }
+
     // TODO could speed up using cursors
     @Override
     public Object[][] project(int[] keys, int[] ids) {
@@ -384,6 +394,13 @@ public final class TuplDB implements WritableDB {
     @Override
     public WritableDB update(final IndexAggregator aggregator, final int id,
                              final int[] keys, final Object[] vals) {
+        // TODO: fix
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public WritableDB replace(final IndexAggregator aggregator, final int id,
+                              final int[] keys, final Object[] vals) {
         // TODO: fix
         throw new UnsupportedOperationException();
     }
