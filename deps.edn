@@ -1,5 +1,5 @@
 {:deps {org.clojure/clojure                      {:mvn/version "1.11.1"}
-        org.clojars.jekyllislandtours/conceptual {:mvn/version "0.1.42"}
+        org.clojars.jekyllislandtours/conceptual {:mvn/version "0.1.53"}
         org.cojen/tupl                           {:mvn/version "1.6.0"}}
 
  :paths ["src/clj" "target/classes"]
