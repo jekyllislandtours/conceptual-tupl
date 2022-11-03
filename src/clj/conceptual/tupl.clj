@@ -289,7 +289,8 @@
   ([^Database db f]
    (let [^Transaction t (transaction db)]
      (try
-       (with-bindings* {#'*transaction* t} f) ;; prefer using binding here
+       (binding [*transaction* t]
+         (f))
        (finally
          (.commit t))))))
 
