@@ -1,0 +1,10 @@
+#kaocha/v1
+{:tests    [{:id         :default
+             :test-paths ["test"]}]
+ :plugins  [:hooks
+            :kaocha.plugin/profiling
+            :kaocha.plugin/print-invocations
+            :kaocha.plugin/notifier]
+ :reporter kaocha.report/documentation
+ :cli-options
+ {:config-file "tests.edn", :print-config true}}
