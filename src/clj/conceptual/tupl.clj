@@ -44,8 +44,8 @@
 (defonce ^{:dynamic true :tag Database} *db* nil)
 
 (defonce ^:dynamic *initialized?* (atom false))
-(def ^:dynamic *key-deserializer* identity)
-(def ^:dynamic *value-deserializer* identity)
+(def ^:dynamic *key-deserializer* arrays/bytes->)
+(def ^:dynamic *value-deserializer* arrays/->bytes)
 (def ^:dynamic *key-serializer* arrays/ensure-bytes)
 (def ^:dynamic *value-serializer* arrays/ensure-bytes)
 
@@ -80,36 +80,36 @@
   [^clojure.lang.Keyword k] (str (.sym k)))
 
 (defn ^DatabaseConfig db-config
-  [{:keys [base-file
-           base-file-path
-           cache-priming?
-           cache-size
-           checkpoint-delay-threshold
-           checkpoint-rate
-           checkpoint-size-threshold
-           checksum-pages-supplier
-           clean-shutdown?
-           create-file-path?
-           crypto
-           custom-handlers
-           data-file
-           data-files
-           data-page-array
-           direct-page-access?
-           durability-mode
-           event-listeners
-           enable-jmx?
-           lock-timeout
-           lock-upgrade-rule
-           map-data-files?
-           max-cache-size
-           max-checkpoint-threads
-           max-replica-threads
-           min-cache-size
-           page-size
-           prepare-handlers
-           readonly?
-           sync-writes?]}]
+  [& {:keys [base-file
+             base-file-path
+             cache-priming?
+             cache-size
+             checkpoint-delay-threshold
+             checkpoint-rate
+             checkpoint-size-threshold
+             checksum-pages-supplier
+             clean-shutdown?
+             create-file-path?
+             crypto
+             custom-handlers
+             data-file
+             data-files
+             data-page-array
+             direct-page-access?
+             durability-mode
+             event-listeners
+             enable-jmx?
+             lock-timeout
+             lock-upgrade-rule
+             map-data-files?
+             max-cache-size
+             max-checkpoint-threads
+             max-replica-threads
+             min-cache-size
+             page-size
+             prepare-handlers
+             readonly?
+             sync-writes?]}]
   (cond-> (DatabaseConfig.)
     base-file (.baseFile base-file)
     base-file-path (.baseFilePath base-file-path)
@@ -322,7 +322,6 @@
   ([^Index idx ^bytes k ^bytes v] (.replace idx nil k v))
   ([^Index idx ^Transaction t ^bytes k ^bytes v] (.replace idx t k v)))
 
-;; rename to store!
 (defn store!
   "Unconditionally associates a value with the given key."
   ([^bytes k ^bytes v] (.store *index* nil k v))
@@ -524,34 +523,36 @@
   (.sync db))
 
 
-(defn ^Scanner scan
+(defn ^Scanner scanner
   ([^Index idx]
-   (scan idx Transaction/BOGUS))
+   (scanner idx Transaction/BOGUS))
   ([^Index idx ^Transaction t]
    (.newScanner idx t)))
+
+
+(defn scan-all
+  [^Scanner s on-entry-fn]
+  (.scanAll s (reify EntryConsumer
+                (accept [this k v]
+                  (on-entry-fn k v)))))
 
 
 (defn index-entries-count
   "Returns the number of entries in a given index."
   [^Index idx]
   (let [n (volatile! 0)]
-    (with-open [s (scan idx)]
-      (.scanAll s
-                (reify EntryConsumer
-                  (accept [this _k _v]
-                    (vswap! n inc)))))
+    (with-open [s (scanner idx)]
+      (scan-all s (fn [_k _v] (vswap! n inc))))
     @n))
+
 
 (defn index-keys
   "Returns all the keys from the index"
   [^Index idx & {:keys [key-deserializer]
                  :or {key-deserializer *key-deserializer*}} ]
   (let [ks (transient [])]
-    (with-open [s (scan idx)]
-      (.scanAll s
-                (reify EntryConsumer
-                  (accept [this k _v]
-                    (conj! ks (key-deserializer k))))))
+    (with-open [s (scanner idx)]
+      (scan-all s (fn [k _v] (conj! ks (key-deserializer k)))))
     (persistent! ks)))
 
 
