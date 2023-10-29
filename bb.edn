@@ -1,5 +1,7 @@
 {:tasks
- {clean
+ {:requires ([clojure.edn :as edn])
+
+  clean
   {:doc "Cleans up any build artifacts"
    :task (shell "clojure -T:build clean")}
 
@@ -44,4 +46,20 @@
    :task (let [named-test (first *command-line-args*)]
            (when-not named-test
              (lib/sys-exit 1 "no namespace or fully qualified var specified"))
-           (shell (str "clojure -M:dev:test --focus " named-test)))}}}
+           (shell (str "clojure -M:dev:test --focus " named-test)))}
+
+
+  dev:cider
+  {:doc "Starts dev repl"
+   :task (shell "clojure -M:dev:test:cider")}
+
+  outdated
+  {:doc "Show outdated dependencies. Specify :upgrade true to upgrade"
+   :task (let [{:keys [upgrade] :as args} (->> *command-line-args*
+                                               (map edn/read-string)
+                                               (apply hash-map))
+               upgrade-flag (if upgrade "--upgrade --force --download" "")
+               cmd (format "clojure -M:outdated --skip=pom %s" upgrade-flag)]
+           ;; continue true required because outdated exits with 1 when there are
+           ;; deps that can be upgraded
+           (shell {:continue true} cmd))}}}
