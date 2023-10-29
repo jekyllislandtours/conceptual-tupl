@@ -13,10 +13,6 @@
   {:doc "Compiles the Clojure files"
    :task (shell "clojure -T:build compile-clj")}
 
-  build:check
-  {:doc "Ensures the code compiles"
-   :depends [clean compile:java compile:clj]}
-
   build:jar
   {:doc "Builds a jar file"
    :task (shell "clojure -T:build jar")}
@@ -25,16 +21,18 @@
   {:doc "Install into local Maven repo cache"
    :task (shell "clojure -T:build install")}
 
-  deploy
-  {:doc "Deploy to clojars."
-   :depends [build:jar]
-   :task (shell "clojure -T:build deploy")}
-
 
   test
   {:doc "Runs clojure tests"
    :depends [compile:java]
    :task (shell "clojure -M:dev:test default")}
+
+  deploy
+  {:doc "Deploy to clojars."
+   :depends [clean compile:java test build:jar]
+   :task (shell "clojure -T:build deploy")}
+
+
 
 
   test:ff
