@@ -1,7 +1,7 @@
 (ns conceptual.tupl
   (:refer-clojure :exclude [load])
   (:require [conceptual.arrays :as arrays])
-  (:import [org.cojen.tupl Cursor Database DatabaseConfig DurabilityMode EntryConsumer Scanner Index Transaction]
+  (:import [org.cojen.tupl Cursor Database DatabaseConfig DurabilityMode Index Transaction View]
            [org.cojen.tupl.ext CipherCrypto Crypto]
            [clojure.lang Keyword]
            [java.io File]
@@ -50,13 +50,13 @@
 (def ^:dynamic *value-serializer* arrays/ensure-bytes)
 
 
-(defn ^Crypto crypto
-  ([key-or-key-size]
+(defn crypto
+  (^Crypto [key-or-key-size]
    (cond
      (bytes? key-or-key-size) (CipherCrypto. ^bytes key-or-key-size)
      (int? key-or-key-size) (CipherCrypto. ^int key-or-key-size)
      :else (throw (ex-info "Invalid input" {:type (type key-or-key-size)}))))
-  ([^SecretKey key key-size]
+  (^Crypto [^SecretKey key key-size]
    (CipherCrypto. key key-size)))
 
 (defn db-stats
@@ -79,37 +79,37 @@
   Not sure why this isn't in clojure core or at least a method of Keyword."
   [^clojure.lang.Keyword k] (str (.sym k)))
 
-(defn ^DatabaseConfig db-config
-  [& {:keys [base-file
-             base-file-path
-             cache-priming?
-             cache-size
-             checkpoint-delay-threshold
-             checkpoint-rate
-             checkpoint-size-threshold
-             checksum-pages-supplier
-             clean-shutdown?
-             create-file-path?
-             crypto
-             custom-handlers
-             data-file
-             data-files
-             data-page-array
-             direct-page-access?
-             durability-mode
-             event-listeners
-             enable-jmx?
-             lock-timeout
-             lock-upgrade-rule
-             map-data-files?
-             max-cache-size
-             max-checkpoint-threads
-             max-replica-threads
-             min-cache-size
-             page-size
-             prepare-handlers
-             readonly?
-             sync-writes?]}]
+(defn db-config
+  ^DatabaseConfig [& {:keys [base-file
+                             base-file-path
+                             cache-priming?
+                             cache-size
+                             checkpoint-delay-threshold
+                             checkpoint-rate
+                             checkpoint-size-threshold
+                             checksum-pages-supplier
+                             clean-shutdown?
+                             create-file-path?
+                             crypto
+                             custom-handlers
+                             data-file
+                             data-files
+                             data-page-array
+                             direct-page-access?
+                             durability-mode
+                             event-listeners
+                             enable-jmx?
+                             lock-timeout
+                             lock-upgrade-rule
+                             map-data-files?
+                             max-cache-size
+                             max-checkpoint-threads
+                             max-replica-threads
+                             min-cache-size
+                             page-size
+                             prepare-handlers
+                             readonly?
+                             sync-writes?]}]
   (cond-> (DatabaseConfig.)
     base-file (.baseFile base-file)
     base-file-path (.baseFilePath base-file-path)
@@ -145,10 +145,10 @@
     (some? readonly?) (.readOnly readonly?)
     (some? sync-writes?) (.syncWrites sync-writes?)))
 
-(defn ^Database open-db
+(defn open-db
   "Opens a database using the specified config. `config` is either a
   map or a `DatabaseConfig`."
-  [config]
+  ^Database [config]
   (Database/open (cond-> config
                    (map? config) db-config)))
 
@@ -157,22 +157,22 @@
   [^AutoCloseable x]
   (some-> x .close))
 
-(defn ^Database db
+(defn db
   "Given a keyword database name opens that database if it exists,
   otherwise creates that database. Returns the default database given no arguments.
   If it does not exist the default database is created. If given a database
   instance returns that database instance."
-  ([] (db *default-identity*))
-  ([k] (db k {}))
-  ([k config]
+  (^Database [] (db *default-identity*))
+  (^Database [k] (db k {}))
+  (^Database [k config]
    (cond
-    (instance? Database k) k
-    (keyword? k)
-    (if-let [-db (@dbs k)]
-      -db
-      (let [new-db (open-db config)]
-        (swap! dbs assoc k new-db)
-        new-db)))))
+     (instance? Database k) k
+     (keyword? k)
+     (if-let [-db (@dbs k)]
+       -db
+       (let [new-db (open-db config)]
+         (swap! dbs assoc k new-db)
+         new-db)))))
 
 (defn set-default-identity-and-db!
   "Sets the `*default-identity*` and `*db*` vars based on the
@@ -235,11 +235,12 @@
      (or (get-index -db k)
          (open-index! -db k)))))
 
-(defn ^Cursor cursor
-  ([idx]
+(defn cursor
+  (^Cursor [idx]
    (cursor *db* idx))
-  ([^Database db idx]
+  (^Cursor [^Database db idx]
    (.newCursor ^Index (index db idx) nil)))
+
 
 (defn transaction
   "Returns a new Transaction with the given durability mode,
@@ -523,36 +524,33 @@
   (.sync db))
 
 
-(defn ^Scanner scanner
-  ([^Index idx]
-   (scanner idx Transaction/BOGUS))
-  ([^Index idx ^Transaction t]
-   (.newScanner idx t)))
-
-
-(defn scan-all
-  [^Scanner s on-entry-fn]
-  (.scanAll s (reify EntryConsumer
-                (accept [this k v]
-                  (on-entry-fn k v)))))
+(defn cursor-traverse
+  [^Cursor c on-entry-fn & {:keys [start-at]}]
+  (case start-at
+    :first (.first c)
+    :last (.last c)
+    nil)
+  (loop [_ nil]
+    (let [k (.key c)]
+      (when k
+        (on-entry-fn k (.value c))
+        (recur (.next c))))))
 
 
 (defn index-entries-count
   "Returns the number of entries in a given index."
   [^Index idx]
-  (let [n (volatile! 0)]
-    (with-open [s (scanner idx)]
-      (scan-all s (fn [_k _v] (vswap! n inc))))
-    @n))
+  (.count idx nil nil))
 
 
 (defn index-keys
   "Returns all the keys from the index"
   [^Index idx & {:keys [key-deserializer]
                  :or {key-deserializer *key-deserializer*}} ]
-  (let [ks (transient [])]
-    (with-open [s (scanner idx)]
-      (scan-all s (fn [k _v] (conj! ks (key-deserializer k)))))
+  (let [ks (transient [])
+        ^View vk (.viewKeys idx)]
+    (with-open [^Cursor c (.newCursor vk Transaction/BOGUS)]
+      (cursor-traverse c (fn [k _v] (conj! ks (key-deserializer k))) :start-at :first))
     (persistent! ks)))
 
 
