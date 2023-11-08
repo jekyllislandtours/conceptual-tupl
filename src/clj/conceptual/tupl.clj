@@ -529,7 +529,7 @@
   (case start-at
     :first (.first c)
     :last (.last c)
-    nil)
+    (.first c))
   (loop [_ nil]
     (let [k (.key c)]
       (when k
