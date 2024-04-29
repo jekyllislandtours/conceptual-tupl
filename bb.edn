@@ -1,6 +1,14 @@
 {:tasks
- {:requires ([clojure.edn :as edn])
+ {:requires ([clojure.edn :as edn]
+             [clojure.string :as str])
 
+  :init
+  (do
+    (defn cli-args-map
+      []
+      (->> *command-line-args*
+           (map (comp edn/read-string str/trim))
+           (apply hash-map))))
   clean
   {:doc "Cleans up any build artifacts"
    :task (shell "clojure -T:build clean")}
@@ -53,9 +61,7 @@
 
   outdated
   {:doc "Show outdated dependencies. Specify :upgrade true to upgrade"
-   :task (let [{:keys [upgrade] :as args} (->> *command-line-args*
-                                               (map edn/read-string)
-                                               (apply hash-map))
+   :task (let [{:keys [upgrade] :as args} (cli-args-map)
                upgrade-flag (if upgrade "--upgrade --force --download" "")
                cmd (format "clojure -M:outdated --skip=pom %s" upgrade-flag)]
            ;; continue true required because outdated exits with 1 when there are
