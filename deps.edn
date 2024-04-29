@@ -1,6 +1,6 @@
-{:deps {org.clojure/clojure                      {:mvn/version "1.11.1"}
-        org.clojars.jekyllislandtours/conceptual {:mvn/version "0.1.83"}
-        org.cojen/tupl                           {:mvn/version "1.7.0"}}
+{:deps {org.clojure/clojure                      {:mvn/version "1.11.3"}
+        org.clojars.jekyllislandtours/conceptual {:mvn/version "0.1.95"}
+        org.cojen/tupl                           {:mvn/version "1.8.0"}}
 
  :paths ["src/clj" "target/classes"]
 
@@ -8,8 +8,8 @@
  {:build
   {:ns-default build
    :deps
-   {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}
-    slipset/deps-deploy {:mvn/version "0.2.1"}}}
+   {io.github.clojure/tools.build {:git/tag "v0.10.1" :git/sha "5e3b8f3"}
+    slipset/deps-deploy {:mvn/version "0.2.2"}}}
 
   :dev {}
 
@@ -17,18 +17,17 @@
   {:main-opts   ["-m" "kaocha.runner" "--config-file" "tests.edn"]
    :extra-paths ["test/clj" "test/resources"]
    :extra-deps
-   {lambdaisland/kaocha                     {:mvn/version "1.87.1366"}
+   {lambdaisland/kaocha                     {:mvn/version "1.88.1376"}
     org.clojure/test.check                  {:mvn/version "1.1.1"}
     com.github.seancorfield/expectations    {:mvn/version "2.1.188"}}}
 
 
   :cider
-  {:extra-deps {cider/cider-nrepl {:mvn/version "0.41.0"}
-                com.kohlschutter.junixsocket/junixsocket {:mvn/version "2.8.2" :extension "pom"}}
+  {:extra-deps {cider/cider-nrepl {:mvn/version "0.47.1"}}
    :main-opts  ["-m" "nrepl.cmdline" "--interactive" "--color" "--middleware" "[cider.nrepl/cider-middleware]" ]}
 
   :outdated
-  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.7.1133"}}
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.8.1201"}}
    :main-opts  ["-m" "antq.core"]}}
 
  :deps/prep-lib {:ensure "target/classes"
