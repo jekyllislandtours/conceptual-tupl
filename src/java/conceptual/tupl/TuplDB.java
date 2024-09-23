@@ -177,8 +177,8 @@ public final class TuplDB implements WritableDB {
 
             byte[] start = new byte[8];
             byte[] end = new byte[8];
-            Bytes.encodeIntPairBE(start, 0, id, keys[0]);
-            Bytes.encodeIntPairBE(end, 0, id, keys[keys.length - 1]);
+            encodeIntPairBE(start, 0, id, keys[0]);
+            encodeIntPairBE(end, 0, id, keys[keys.length - 1]);
 
             Cursor pull = this.eav.newCursor(Transaction.BOGUS);
             try {
@@ -217,7 +217,7 @@ public final class TuplDB implements WritableDB {
     public Object getValue(final int id, final int key) {
         Object result = null;
         byte[] pair = new byte[8];
-        Bytes.encodeIntPairBE(pair, 0, id, key);
+        encodeIntPairBE(pair, 0, id, key);
         try {
             byte[] v = eav.load(null, pair);
             if (v != null) {
@@ -319,7 +319,7 @@ public final class TuplDB implements WritableDB {
                 keyIndex.store(Transaction.BOGUS, idb, DBTranscoder.encodeKeys(ks1));
                 for (int i=0; i < ks1.length; i++) {
                     byte[] eav_key = new byte[8];
-                    Bytes.encodeIntPairBE(eav_key, 0, id, ks1[i]);
+                    encodeIntPairBE(eav_key, 0, id, ks1[i]);
                     eav.store(Transaction.BOGUS, eav_key, DBTranscoder.encodeVal(vs1[i]));
                     if (aggregator != null) {
                         aggregator.add(ks1[i], id);
@@ -347,7 +347,7 @@ public final class TuplDB implements WritableDB {
             byte[] idb = new byte[4];
             Utils.encodeIntBE(idb, 0, id);
             byte[] idKeyPair = new byte[8];
-            Bytes.encodeIntPairBE(idKeyPair, 0, id, key);
+            encodeIntPairBE(idKeyPair, 0, id, key);
             if (idx > 0) { // should not change id
                 final Object[] vs1 = new Object[vs.length];
                 System.arraycopy(vs, 0, vs1, 0, vs.length);
@@ -546,7 +546,7 @@ public final class TuplDB implements WritableDB {
                 ks = db.getKeys(i);
                 vs = db.getValues(i);
                 for (int j = 0; j < ks.length; j++) {
-                    Bytes.encodeIntPairBE(key, 0, i, ks[j]);
+                    encodeIntPairBE(key, 0, i, ks[j]);
                     fill.findNearby(key);
                     fill.store(DBTranscoder.encodeVal(vs[j]));
                     current = Math.round(((double) i/ lengthD) * 100.0d);
@@ -576,6 +576,17 @@ public final class TuplDB implements WritableDB {
             throw new RuntimeException(e);
         }
         return result;
+    }
+
+    /** Copied from org.cojen.tupl.Utils -- (author: Brian O'Neill)
+        they were package protected and now removed */
+
+    public static final void encodeIntPairBE(byte[] b, int offset, int x, int y) {
+        Utils.encodeLongBE(b, 0, (((long) x) << 32) | (y & 0xffffffffL));
+    }
+
+    public static final int[] decodeIntPairBE(byte[] b, int offset) {
+        return new int[] {Utils.decodeIntBE(b, offset), Utils.decodeIntBE(b, offset + 4)};
     }
 
 
